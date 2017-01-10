@@ -1,17 +1,42 @@
 extern crate git2;
 
-fn main() {
-    use git2::Repository;
+const PROGNAME: &'static str = "git-rup";
 
-    let remotes = Repository::open(".").and_then(|repo| repo.remotes());
-    if let Result::Err(e) = remotes {
-        println!("{}", e);
-        return;
+fn main() {
+    macro_rules! info {
+        ($($args: expr),*) => {{
+            print!("[{}] ", PROGNAME);
+            println!($($args),*);
+        }};
+    }
+
+    macro_rules! fail {
+        ($($args: expr),*) => {{
+            print!("[{}] ", PROGNAME);
+            println!($($args),*);
+            std::process::exit(1);
+        }};
+    }
+
+    let repo = match git2::Repository::open(".") {
+        Ok(repo) => repo,
+        Err(e) => fail!("{}", e),
     };
 
-    let remotes = remotes.unwrap();
-    println!("found {} remotes:", remotes.len());
+    let remotes = match repo.remotes() {
+        Ok(remotes) => remotes,
+        Err(e) => fail!("{}", e),
+    };
+
+    info!("found {} remotes:", remotes.len());
     for r in remotes.iter() {
-        println!("\t{}", r.unwrap());
+        match r {
+            Some(r) => {
+                info!("    {}", r);
+            }
+            None => {
+                info!("    none UTF-8 remote name");
+            }
+        }
     }
 }
