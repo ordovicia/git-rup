@@ -54,11 +54,12 @@ fn main() {
     info!();
 
     // fetch
-    let valid_remotes =
-        remotes.iter().zip(valid_remotes_idx).filter_map(|(r, v)| if v { Some(r) } else { None });
+    let valid_remotes = remotes.iter()
+        .zip(valid_remotes_idx)
+        .filter_map(|(r, v)| if v { Some(r) } else { None })
+        .map(|n| n.unwrap());
 
-    for remote_name_or in valid_remotes {
-        let remote_name = remote_name_or.unwrap();
+    for remote_name in valid_remotes {
         let mut remote = repo.find_remote(remote_name).unwrap();
         info!("fetching from {} ({}) ...",
               remote_name,
@@ -68,10 +69,10 @@ fn main() {
         fetch_options.prune(FetchPrune::On).download_tags(AutotagOption::All);
         match remote.fetch(&[], Some(&mut fetch_options), None) {
             Ok(_) => {
-                info!("fetched successfully");
+                info!("success");
             }
             Err(e) => {
-                warn!("fetch failed: {}", e);
+                fail!("fetch failed: {}", e);
             }
         };
     }
@@ -83,13 +84,32 @@ fn main() {
         Err(e) => fail!("failed to create signature: {}", e),
     };
     info!("using signature: {}", signature);
+    info!();
+
+    // status
+    info!("repository statue:");
+    let is_clean = match repo.statuses(None) {
+        Ok(statuses) => {
+            // TODO: WIP
+            for st in statuses.iter() {
+                info!("{:?}: {}", st.status(), st.path().unwrap());
+            }
+            info!("{}", statuses.len());
+            statuses.len() == 0
+        }
+        Err(e) => {
+            fail!("failed to get repository status: {}", e);
+        }
+    };
 
     // stash
-    if let Err(e) = repo.stash_save(&signature, "automatically stashed by git-rup", None) {
-        fail!("failed to create stash: {}", e);
-    };
+    if is_clean {
+        if let Err(e) = repo.stash_save(&signature, "automatically stashed by git-rup", None) {
+            fail!("failed to create stash: {}", e);
+        };
 
-    if let Err(e) = repo.stash_pop(0, None) {
-        fail!("failed to pop stash: {}", e);
-    };
+        if let Err(e) = repo.stash_pop(0, None) {
+            fail!("failed to pop stash: {}", e);
+        };
+    }
 }
