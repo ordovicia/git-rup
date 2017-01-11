@@ -1,28 +1,10 @@
 extern crate git2;
 use git2::{Repository, FetchOptions, FetchPrune, AutotagOption};
 
-const PROGNAME: &'static str = "git-rup";
+#[macro_use]
+mod utils;
 
 fn main() {
-    macro_rules! info {
-        ($($args: expr),*) => {{
-            print!("[{}] ", PROGNAME);
-            println!($($args),*);
-        }};
-    }
-
-    macro_rules! warn {
-        ($($args: expr),*) => { info!($($args),*); };
-    }
-
-    macro_rules! fail {
-        ($($args: expr),*) => {{
-            print!("[{}] ", PROGNAME);
-            println!($($args),*);
-            std::process::exit(1);
-        }};
-    }
-
     let repo = match Repository::open(".") {
         Ok(repo) => repo,
         Err(e) => fail!("{}", e),
