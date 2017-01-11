@@ -1,3 +1,8 @@
+use std::env;
+
+extern crate getopts;
+use getopts::Options;
+
 extern crate git2;
 use git2::{Repository, RepositoryState};
 use git2::{FetchOptions, FetchPrune, AutotagOption};
@@ -6,6 +11,26 @@ use git2::{FetchOptions, FetchPrune, AutotagOption};
 mod utils;
 
 fn main() {
+    let args = env::args().collect::<Vec<String>>();
+
+    // program options
+    let mut opts = Options::new();
+    opts.optflag("", "dry-run", "dry run");
+    opts.optflag("h", "help", "print this help menu");
+    let opt_matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(e) => {
+            fail!("program option parse error: {}", e);
+        }
+    };
+
+    if opt_matches.opt_present("h") {
+        println!("{}", opts.usage("Usage: git-rup [options]"));
+        return;
+    }
+
+    let dry_run = opt_matches.opt_present("dry-run");
+
     // repository
     let mut repo = match Repository::open(".") {
         Ok(repo) => repo,
@@ -67,14 +92,18 @@ fn main() {
 
         let mut fetch_options = FetchOptions::new();
         fetch_options.prune(FetchPrune::On).download_tags(AutotagOption::All);
-        match remote.fetch(&[], Some(&mut fetch_options), None) {
-            Ok(_) => {
-                info!("success");
-            }
-            Err(e) => {
-                fail!("fetch failed: {}", e);
-            }
-        };
+        if dry_run {
+            info!("skipped (dry run)");
+        } else {
+            match remote.fetch(&[], Some(&mut fetch_options), None) {
+                Ok(_) => {
+                    info!("success");
+                }
+                Err(e) => {
+                    fail!("fetch failed: {}", e);
+                }
+            };
+        }
     }
     info!();
 
