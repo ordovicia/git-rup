@@ -5,48 +5,83 @@ use git2::{Repository, FetchOptions, FetchPrune, AutotagOption};
 mod utils;
 
 fn main() {
-    let repo = match Repository::open(".") {
+    // repository
+    let mut repo = match Repository::open(".") {
         Ok(repo) => repo,
-        Err(e) => fail!("{}", e),
+        Err(e) => fail!("failed to open repository: {}", e),
     };
 
+    // remotes
     let remotes = match repo.remotes() {
         Ok(remotes) => remotes,
-        Err(e) => fail!("{}", e),
+        Err(e) => fail!("failed to get remotes info: {}", e),
     };
 
+    // validate remotes
     info!("found {} remotes:", remotes.len());
-    for r in remotes.iter() {
-        match r {
-            Some(r) => {
-                info!("    {}", r);
-            }
-            None => {
-                info!("    none UTF-8 remote name");
-            }
+    let mut valid_remotes_idx = vec![];
+    for remote_name_or in remotes.iter() {
+        if let Some(remote_name) = remote_name_or {
+            let is_valid = match repo.find_remote(remote_name) {
+                Ok(remote) => {
+                    if let Some(url) = remote.url() {
+                        info!("- {} ({})", remote_name, url);
+                        true
+                    } else {
+                        warn!("# {} non UTF-8 remote URL", remote_name);
+                        false
+                    }
+                }
+                Err(e) => {
+                    warn!("# {} couldn't find: {}", remote_name, e);
+                    false
+                }
+            };
+
+            valid_remotes_idx.push(is_valid);
+        } else {
+            warn!("# non UTF-8 remote name or URL");
         }
     }
     info!();
 
-    for r in remotes.iter() {
-        if r.is_none() {
-            continue;
-        }
-        let r = r.unwrap();
+    // fetch
+    let valid_remotes =
+        remotes.iter().zip(valid_remotes_idx).filter_map(|(r, v)| if v { Some(r) } else { None });
 
-        info!("fetching from {}...", r);
+    for remote_name_or in valid_remotes {
+        let remote_name = remote_name_or.unwrap();
+        let mut remote = repo.find_remote(remote_name).unwrap();
+        info!("fetching from {} ({}) ...",
+              remote_name,
+              remote.url().unwrap());
 
         let mut fetch_options = FetchOptions::new();
         fetch_options.prune(FetchPrune::On).download_tags(AutotagOption::All);
-
-        match repo.find_remote(r)
-            .and_then(|ref mut remote| remote.fetch(&[], Some(&mut fetch_options), None)) {
+        match remote.fetch(&[], Some(&mut fetch_options), None) {
             Ok(_) => {
                 info!("fetched successfully");
             }
             Err(e) => {
-                warn!("{}", e);
+                warn!("fetch failed: {}", e);
             }
         };
     }
+    info!();
+
+    // signature
+    let signature = match repo.signature() {
+        Ok(sig) => sig,
+        Err(e) => fail!("failed to create signature: {}", e),
+    };
+    info!("using signature: {}", signature);
+
+    // stash
+    if let Err(e) = repo.stash_save(&signature, "automatically stashed by git-rup", None) {
+        fail!("failed to create stash: {}", e);
+    };
+
+    if let Err(e) = repo.stash_pop(0, None) {
+        fail!("failed to pop stash: {}", e);
+    };
 }
