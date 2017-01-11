@@ -1,5 +1,6 @@
 extern crate git2;
-use git2::{Repository, FetchOptions, FetchPrune, AutotagOption};
+use git2::{Repository, RepositoryState};
+use git2::{FetchOptions, FetchPrune, AutotagOption};
 
 #[macro_use]
 mod utils;
@@ -9,6 +10,13 @@ fn main() {
     let mut repo = match Repository::open(".") {
         Ok(repo) => repo,
         Err(e) => fail!("failed to open repository: {}", e),
+    };
+
+    match repo.state() {
+        RepositoryState::Clean => {}
+        st => {
+            fail!("repository is not clean: {:#?}", st);
+        }
     };
 
     // remotes
