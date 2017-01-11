@@ -133,12 +133,22 @@ fn main() {
 
     // stash
     if is_clean {
-        if let Err(e) = repo.stash_save(&signature, "automatically stashed by git-rup", None) {
-            fail!("failed to create stash: {}", e);
+        match repo.stash_save(&signature, "automatically stashed by git-rup", None) {
+            Ok(_) => {
+                info!("stashed");
+            }
+            Err(e) => {
+                fail!("failed to create stash: {}", e);
+            }
         };
 
-        if let Err(e) = repo.stash_pop(0, None) {
-            fail!("failed to pop stash: {}", e);
+        match repo.stash_pop(0, None) {
+            Ok(_) => {
+                info!("stash popped");
+            }
+            Err(e) => {
+                fail!("failed to pop stash: {}", e);
+            }
         };
     }
 }
