@@ -9,6 +9,7 @@ use git2::{FetchOptions, FetchPrune, AutotagOption};
 
 #[macro_use]
 mod utils;
+mod status;
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
@@ -93,7 +94,7 @@ fn main() {
         let mut fetch_options = FetchOptions::new();
         fetch_options.prune(FetchPrune::On).download_tags(AutotagOption::All);
         if dry_run {
-            info!("skipped (dry run)");
+            info!("skipped (dry-run)");
         } else {
             match remote.fetch(&[], Some(&mut fetch_options), None) {
                 Ok(_) => {
@@ -116,23 +117,20 @@ fn main() {
     info!();
 
     // status
-    info!("repository statue:");
+    info!("repository status:");
     let is_clean = match repo.statuses(None) {
         Ok(statuses) => {
-            // TODO: WIP
-            for st in statuses.iter() {
-                info!("{:?}: {}", st.status(), st.path().unwrap());
-            }
-            info!("{}", statuses.len());
-            statuses.len() == 0
+            statuses.iter().map(|st| status::pprint(&st)).collect::<Vec<_>>();
+            status::is_clean(&statuses)
         }
         Err(e) => {
             fail!("failed to get repository status: {}", e);
         }
     };
+    info!();
 
     // stash
-    if is_clean {
+    if !is_clean {
         match repo.stash_save(&signature, "automatically stashed by git-rup", None) {
             Ok(_) => {
                 info!("stashed");

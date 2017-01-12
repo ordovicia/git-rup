@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! info {
     ($($args: expr),*) => {{
-        print!("[git-rup] ");
+        // print!("[git-rup] ");
         println!($($args),*);
     }};
 }
@@ -15,6 +15,6 @@ macro_rules! warn {
 macro_rules! fail {
     ($($args: expr),*) => {{
         info!($($args),*);
-        std::process::exit(1);
+        ::std::process::exit(1);
     }};
 }
