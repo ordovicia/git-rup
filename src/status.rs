@@ -31,7 +31,7 @@ pub fn pprint(status: &git2::StatusEntry) {
         match st {
             git2::STATUS_IGNORED => {}
             _ => {
-                info!("    {:?}: {}", StatusFormatter::new(&st), path);
+                println!("  {:?}: {}", StatusFormatter::new(&st), path);
             }
         }
     } else {

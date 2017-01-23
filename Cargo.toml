@@ -5,7 +5,7 @@ version = "0.1.0"
 description = ""
 repository = "https://github.com/ordovicia/git-rup"
 readme = "README.md"
-# include = ["src/*.rs", "Cargo.toml"]
+include = ["src/*.rs", "Cargo.toml"]
 
 [dependencies]
 getopts = "0.2.14"
