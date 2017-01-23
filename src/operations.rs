@@ -12,7 +12,7 @@ pub fn get_repository() -> Result<Repository> {
     result::with_msg(Repository::discover("."), "failed to open repository")
         .and_then(|r| match r.state() {
             git2::RepositoryState::Clean => Ok(r),
-            _ => Err(Error::new("repository is not clean")),
+            _ => Err(Error::new("repository is under another operation")),
         })
 }
 
@@ -33,13 +33,13 @@ pub fn get_remote_validation<'repo>(repo: &'repo Repository,
                 if let Some(_) = remote.url() {
                     Ok(repo.find_remote(name).unwrap())
                 } else {
-                    Err(format!("# {} non UTF-8 remote URL", name))
+                    Err(format!("x {} non UTF-8 remote URL", name))
                 }
             }
-            Err(e) => Err(format!("# {} couldn't find: {}", name, e)),
+            Err(e) => Err(format!("x {} couldn't find: {}", name, e)),
         }
     } else {
-        Err("# non UTF-8 remote name or URL".to_owned())
+        Err("x non UTF-8 remote name or URL".to_owned())
     }
 }
 

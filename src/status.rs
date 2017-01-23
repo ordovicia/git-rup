@@ -25,6 +25,7 @@ impl<'repo> Debug for StatusFormatter<'repo> {
     }
 }
 
+// TODO: modified submodule
 pub fn pprint(status: &git2::StatusEntry) {
     let st = status.status();
     if let Some(path) = status.path() {

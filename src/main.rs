@@ -71,9 +71,11 @@ fn main() {
     let is_clean = {
         let statuses = try_unwrap!(repo.statuses(None));
         statuses.iter().map(|st| status::pprint(&st)).collect::<Vec<_>>();
-        // TODO: print 'clean'
         status::is_clean(&statuses)
     };
+    if is_clean {
+        println!("    clean");
+    }
     println!();
 
     // save submodules' branch
@@ -88,10 +90,10 @@ fn main() {
                         println!("- {} ({})", n, b);
                     }
                     (Some(n), None) => {
-                        println!("# {} (invalid branch)", n);
+                        println!("x {} (invalid branch)", n);
                     }
                     _ => {
-                        println!("# invalid submodule name");
+                        println!("x invalid submodule name");
                     }
                 }
             }
