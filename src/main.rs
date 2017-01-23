@@ -78,6 +78,7 @@ fn main() {
     }
     println!();
 
+    /*
     // save submodules' branch
     {
         let submodules = try_unwrap!(operations::get_submodules(&repo));
@@ -100,6 +101,7 @@ fn main() {
         }
     }
     println!();
+    */
 
     // save stash
     if !is_clean {
