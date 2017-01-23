@@ -62,7 +62,7 @@ fn main() {
     println!();
 
     // signature
-    let signature = try_unwrap!(operations::get_signature(&repo));
+    let signature = try_unwrap!(repo.signature());
     println!("using signature: {}\n", signature);
 
     // status
