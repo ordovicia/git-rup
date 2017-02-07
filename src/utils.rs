@@ -10,3 +10,13 @@ macro_rules! fail {
 macro_rules! fail_with {
     ($e: expr) => { fail!("{}", $e); };
 }
+
+#[macro_export]
+macro_rules! try_unwrap_opt {
+    ($e: expr, $msg: expr) => {
+        match $e {
+            Some(v) => v,
+            None => fail_with!($msg),
+        }
+    }
+}

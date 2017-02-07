@@ -1,51 +1,89 @@
-use std::fmt::{Debug, Formatter, Error};
-
 extern crate git2;
 
-struct StatusFormatter<'repo> {
-    status: &'repo git2::Status,
-}
+fn print_head(repo: &git2::Repository) {
+    let head = try_unwrap!(repo.head());
 
-impl<'repo> StatusFormatter<'repo> {
-    fn new(status: &'repo git2::Status) -> StatusFormatter {
-        StatusFormatter { status: status }
-    }
-}
-
-impl<'repo> Debug for StatusFormatter<'repo> {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        match self.status {
-            &git2::STATUS_WT_MODIFIED => write!(f, "   modified"),
-            &git2::STATUS_WT_NEW => write!(f, "        new"),
-            &git2::STATUS_WT_DELETED => write!(f, "    deleted"),
-            &git2::STATUS_WT_RENAMED => write!(f, "    renamed"),
-            &git2::STATUS_WT_TYPECHANGE => write!(f, "type change"),
-            _ => self.status.fmt(f),
-        }
-    }
-}
-
-// TODO: modified submodule
-pub fn pprint(status: &git2::StatusEntry) {
-    let st = status.status();
-    if let Some(path) = status.path() {
-        match st {
-            git2::STATUS_IGNORED => {}
-            _ => {
-                println!("  {:?}: {}", StatusFormatter::new(&st), path);
-            }
+    if head.is_branch() {
+        let name = try_unwrap_opt!(head.shorthand(), "non UTF-8 branch name");
+        let branch = try_unwrap!(repo.find_branch(name, git2::BranchType::Local));
+        let upstream = branch.upstream();
+        if let Ok(upstream) = upstream {
+            let up_name = try_unwrap_opt!(try_unwrap!(upstream.name()),
+                                          "non UTF-8 upstream branch name");
+            println!("  On branch {} ... {}", name, up_name);
+        } else {
+            println!("  On branch {}", name);
         }
     } else {
-        fail!("# non UTF-8 file path");
+        println!("  not on any branch");
     }
 }
 
-pub fn is_clean(statuses: &git2::Statuses) -> bool {
-    statuses.iter()
-        .map(|st| if st.status() == git2::STATUS_IGNORED {
-            0
-        } else {
-            1
-        })
-        .sum::<i32>() == 0
+pub fn print(repo: &git2::Repository) {
+    print_head(repo);
+
+    let statuses = try_unwrap!(repo.statuses(None));
+
+    // Staged
+    let mut staged_exist = false;
+    for entry in statuses.iter().filter(|e| e.status() != git2::STATUS_CURRENT) {
+        let type_str = match entry.status() {
+            s if s.contains(git2::STATUS_INDEX_NEW) => "new file:     ",
+            s if s.contains(git2::STATUS_INDEX_MODIFIED) => "modified:     ",
+            s if s.contains(git2::STATUS_INDEX_DELETED) => "deleted:      ",
+            s if s.contains(git2::STATUS_INDEX_RENAMED) => "renamed:      ",
+            s if s.contains(git2::STATUS_INDEX_TYPECHANGE) => "type changed: ",
+            _ => continue,
+        };
+
+        if !staged_exist {
+            println!("= staged =");
+            staged_exist = true;
+        }
+
+        let old_path = entry.head_to_index().unwrap().old_file().path();
+        let new_path = entry.head_to_index().unwrap().new_file().path();
+        match (old_path, new_path) {
+            (Some(ref old), Some(ref new)) if old != new => {
+                println!("- {} {} -> {}", type_str, old.display(), new.display());
+            }
+            (old, new) => {
+                println!("- {} {}", type_str, old.or(new).unwrap().display());
+            }
+        }
+    }
+
+    // Working tree
+    let mut wt_exist = false;
+    for entry in statuses.iter()
+        .filter(|e| e.status() != git2::STATUS_CURRENT && !e.index_to_workdir().is_none()) {
+        let type_str = match entry.status() {
+            s if s.contains(git2::STATUS_WT_MODIFIED) => "modified:     ",
+            s if s.contains(git2::STATUS_WT_DELETED) => "deleted:      ",
+            s if s.contains(git2::STATUS_WT_RENAMED) => "renamed:      ",
+            s if s.contains(git2::STATUS_WT_TYPECHANGE) => "type changed: ",
+            _ => continue,
+        };
+
+        if !wt_exist {
+            println!("= working tree =");
+            wt_exist = true;
+        }
+
+        let old_path = entry.index_to_workdir().unwrap().old_file().path();
+        let new_path = entry.index_to_workdir().unwrap().new_file().path();
+        match (old_path, new_path) {
+            (Some(ref old), Some(ref new)) if old != new => {
+                println!("- {} {} -> {}", type_str, old.display(), new.display());
+            }
+            (old, new) => {
+                println!("- {} {}", type_str, old.or(new).unwrap().display());
+            }
+        }
+    }
+
+    for entry in statuses.iter().filter(|e| e.status() == git2::STATUS_WT_NEW) {
+        println!("- untracked:     {}",
+                 entry.index_to_workdir().unwrap().old_file().path().unwrap().display());
+    }
 }

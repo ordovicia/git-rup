@@ -1,4 +1,5 @@
 use std::env;
+use std::io::{self, Write};
 
 extern crate getopts;
 use getopts::Options;
@@ -11,6 +12,13 @@ mod utils;
 mod result;
 mod operations;
 mod status;
+
+macro_rules! print_flush {
+    ($($args: expr),*) => {{
+        println!($($args),*);
+          io::stdout().flush().unwrap();
+    }};
+}
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
@@ -46,12 +54,12 @@ fn main() {
         match operations::get_remote_validation(&repo, name) {
             Ok(mut remote) => {
                 println!("- {} ({})", name.unwrap(), remote.url().unwrap());
-                print!("  fetching ... ");
+                print_flush!("  fetching ... ");
                 if dry_run {
                     println!("skipped (dry-run)");
                 } else {
                     let _ = try_unwrap!(operations::fetch(&mut remote));
-                    println!("success");
+                    println!("done");
                 }
             }
             Err(e) => {
@@ -59,64 +67,93 @@ fn main() {
             }
         }
     }
-    println!();
+
+    if !operations::is_head_on_branch(&repo) {
+        println!("HEAD is not on any branch!");
+        return;
+    }
+    // let current_branch = operations::current_branch(&repo);
+    let is_dirty = operations::is_dirty(&repo);
+    if is_dirty {
+        println!("repository is dirty");
+    }
 
     // signature
     let signature = try_unwrap!(repo.signature());
-    println!("using signature: {}\n", signature);
-
-    // status
-    println!("repository status:");
-    // TODO: prety print
-    let is_clean = {
-        let statuses = try_unwrap!(repo.statuses(None));
-        statuses.iter().map(|st| status::pprint(&st)).collect::<Vec<_>>();
-        status::is_clean(&statuses)
-    };
-    if is_clean {
-        println!("    clean");
+    println!("using signature:\n  {}", signature);
+    if is_dirty {
+        print_flush!("stashing ... ");
+        let _ = try_unwrap!(operations::stash_save(&mut repo, &signature));
+        println!("done");
     }
-    println!();
 
-    /*
-    // save submodules' branch
+    // merge
     {
-        let submodules = try_unwrap!(operations::get_submodules(&repo));
-        if submodules.len() > 0 {
-            println!("submodules:");
-            for sb in submodules.iter() {
-                match (sb.name(), sb.branch()) {
-                    // TODO: always invalid?
-                    (Some(n), Some(b)) => {
-                        println!("- {} ({})", n, b);
+        let branch_num = try_unwrap!(repo.branches(Some(git2::BranchType::Local))).count();
+        println!("found {} local branch{}:",
+                 branch_num,
+                 if branch_num == 1 { "" } else { "es" });
+
+        let local_branches = try_unwrap!(repo.branches(Some(git2::BranchType::Local)));
+        for branch in local_branches {
+            let (branch, _) = try_unwrap!(branch);
+            let upstream = branch.upstream();
+            match upstream {
+                Ok(up) => {
+                    let loc_name = try_unwrap!(branch.name());
+                    let up_name = try_unwrap!(up.name());
+                    match (loc_name, up_name) {
+                        (Some(loc_name), Some(up_name)) => {
+                            println!("- {} -> {}", loc_name, up_name);
+                            print_flush!("  merging ... ");
+                            if dry_run {
+                                println!("skipped (dry-run)");
+                                continue;
+                            }
+                            println!("done");
+
+                            let loc_commit = operations::branch_commit(&branch);
+                            let rem_commit = operations::branch_commit(&up);
+                            let _ = repo.merge_commits(&loc_commit, &rem_commit, None);
+                        }
+                        _ => println!("x non UTF-8 branch name"),
                     }
-                    (Some(n), None) => {
-                        println!("x {} (invalid branch)", n);
-                    }
-                    _ => {
-                        println!("x invalid submodule name");
+                }
+                _ => {
+                    match try_unwrap!(branch.name()) {
+                        Some(loc_name) => println!("- {}", loc_name),
+                        _ => println!("x non UTF-8 branch name"),
                     }
                 }
             }
         }
     }
-    println!();
-    */
 
-    // save stash
-    if !is_clean {
-        let _ = try_unwrap!(operations::stash_save(&mut repo, &signature));
-        println!("stash saved");
+    {
+        let submodules = try_unwrap!(repo.submodules());
+        if submodules.len() > 0 {
+            println!("found {} submodule{}",
+                     submodules.len(),
+                     if submodules.len() > 1 { "s" } else { "" });
+            for mut sb in submodules {
+                {
+                    if let Some(name) = sb.name() {
+                        println!("- {}", name);
+                    } else {
+                        println!("x non UTF-8 submodule name");
+                        continue;
+                    }
+                }
+
+                let _ = try_unwrap!(sb.sync());
+                let _ = try_unwrap!(sb.reload(false));
+            }
+        }
     }
 
-    // TODO: Merge all local branches which tracks remote.
-    // TODO: Fetch and merge all submodules
-    // TODO: Checkout submodules' saved branch
-
-    // pop stash
-    if !is_clean {
+    if is_dirty {
+        print_flush!("popping stash ... ");
         let _ = try_unwrap!(operations::stash_pop(&mut repo));
-        println!("stash poped");
+        println!("done");
     }
-
 }

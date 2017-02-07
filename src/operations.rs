@@ -1,9 +1,9 @@
+extern crate std;
+
 extern crate git2;
 use git2::Error;
-use git2::{Repository, Remote};
+use git2::{Repository, Remote, Branch};
 use git2::{FetchOptions, FetchPrune, AutotagOption};
-use git2::string_array::StringArray;
-use git2::Signature;
 
 use result::Result;
 
@@ -15,7 +15,7 @@ pub fn get_repository() -> Result<Repository> {
     }
 }
 
-pub fn get_remotes(repo: &Repository) -> Result<StringArray> {
+pub fn get_remotes(repo: &Repository) -> Result<git2::string_array::StringArray> {
     match repo.remotes() {
         Ok(ref remotes) if remotes.len() == 0 => {
             Err(Error::from_str("does not have remote repository"))
@@ -49,10 +49,36 @@ pub fn fetch(remote: &mut Remote) -> Result<()> {
     remote.fetch(&[], Some(&mut fetch_options), None)
 }
 
-pub fn stash_save(repo: &mut Repository, signature: &Signature) -> Result<git2::Oid> {
+pub fn is_head_on_branch(repo: &Repository) -> bool {
+    repo.head().unwrap().is_branch()
+}
+
+#[allow(dead_code)]
+pub fn current_branch(repo: &Repository) -> Branch {
+    Branch::wrap(repo.head().unwrap())
+}
+
+pub fn is_dirty(repo: &Repository) -> bool {
+    let statuses = try_unwrap!(repo.statuses(None));
+    statuses.iter().any(|st| match st.status() {
+        git2::STATUS_IGNORED |
+        git2::STATUS_INDEX_NEW |
+        git2::STATUS_INDEX_MODIFIED |
+        git2::STATUS_INDEX_DELETED |
+        git2::STATUS_INDEX_RENAMED |
+        git2::STATUS_INDEX_TYPECHANGE => false,
+        _ => true,
+    })
+}
+
+pub fn stash_save(repo: &mut Repository, signature: &git2::Signature) -> Result<git2::Oid> {
     repo.stash_save(&signature, "automatically stashed by git-rup", None)
 }
 
 pub fn stash_pop(repo: &mut Repository) -> Result<()> {
     repo.stash_pop(0, None)
+}
+
+pub fn branch_commit<'repo>(branch: &'repo Branch) -> git2::Commit<'repo> {
+    try_unwrap!(branch.get().peel(git2::ObjectType::Commit)).into_commit().ok().unwrap()
 }
