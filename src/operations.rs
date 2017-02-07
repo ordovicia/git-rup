@@ -53,11 +53,6 @@ pub fn is_head_on_branch(repo: &Repository) -> bool {
     repo.head().unwrap().is_branch()
 }
 
-#[allow(dead_code)]
-pub fn current_branch(repo: &Repository) -> Branch {
-    Branch::wrap(repo.head().unwrap())
-}
-
 pub fn is_dirty(repo: &Repository) -> bool {
     let statuses = try_unwrap!(repo.statuses(None));
     statuses.iter().any(|st| match st.status() {
