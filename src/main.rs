@@ -11,7 +11,6 @@ mod utils;
 #[macro_use]
 mod result;
 mod operations;
-mod status;
 
 macro_rules! print_flush {
     ($($args: expr),*) => {{
