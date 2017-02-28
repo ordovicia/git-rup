@@ -8,7 +8,5 @@ readme = "README.md"
 include = ["src/*.rs", "Cargo.toml"]
 
 [dependencies]
+git2 = "0.6"
 getopts = "0.2.14"
-
-[dependencies.git2]
-git = "https://github.com/alexcrichton/git2-rs"
