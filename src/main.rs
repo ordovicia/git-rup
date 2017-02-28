@@ -14,8 +14,8 @@ mod operations;
 
 macro_rules! print_flush {
     ($($args: expr),*) => {{
-        println!($($args),*);
-          io::stdout().flush().unwrap();
+        print!($($args),*);
+        io::stdout().flush().unwrap();
     }};
 }
 
@@ -71,7 +71,7 @@ fn main() {
         println!("HEAD is not on any branch!");
         return;
     }
-    // let current_branch = operations::current_branch(&repo);
+
     let is_dirty = operations::is_dirty(&repo);
     if is_dirty {
         println!("repository is dirty");
@@ -109,11 +109,14 @@ fn main() {
                                 println!("skipped (dry-run)");
                                 continue;
                             }
-                            println!("done");
 
-                            let loc_commit = operations::branch_commit(&branch);
-                            let rem_commit = operations::branch_commit(&up);
-                            let _ = repo.merge_commits(&loc_commit, &rem_commit, None);
+                            /*
+                            let loc_commit = operations::branch_commit(&repo, &branch);
+                            let up_commit = operations::branch_commit(&repo, &up);
+                            let _ = repo.merge_commits(&loc_commit, &up_commit, None);
+                            */
+
+                            println!("done");
                         }
                         _ => println!("x non UTF-8 branch name"),
                     }

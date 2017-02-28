@@ -2,7 +2,7 @@ extern crate std;
 
 extern crate git2;
 use git2::Error;
-use git2::{Repository, Remote, Branch};
+use git2::{Repository, Remote /*, Branch */};
 use git2::{FetchOptions, FetchPrune, AutotagOption};
 
 use result::Result;
@@ -56,6 +56,7 @@ pub fn is_head_on_branch(repo: &Repository) -> bool {
 pub fn is_dirty(repo: &Repository) -> bool {
     let statuses = try_unwrap!(repo.statuses(None));
     statuses.iter().any(|st| match st.status() {
+        git2::STATUS_WT_NEW |
         git2::STATUS_IGNORED |
         git2::STATUS_INDEX_NEW |
         git2::STATUS_INDEX_MODIFIED |
@@ -74,6 +75,10 @@ pub fn stash_pop(repo: &mut Repository) -> Result<()> {
     repo.stash_pop(0, None)
 }
 
-pub fn branch_commit<'repo>(branch: &'repo Branch) -> git2::Commit<'repo> {
-    try_unwrap!(branch.get().peel(git2::ObjectType::Commit)).into_commit().ok().unwrap()
+/*
+pub fn branch_commit<'repo>(repo: &'repo Repository,
+                            branch: &'repo Branch)
+                            -> git2::AnnotatedCommit<'repo> {
+    try_unwrap!(repo.reference_to_annotated_commit(branch.get()))
 }
+*/
